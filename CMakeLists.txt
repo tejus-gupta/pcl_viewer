@@ -201,3 +201,6 @@ include_directories(
 
 add_executable(viewer src/viewer.cpp)
 target_link_libraries(viewer ${catkin_LIBRARIES} ${PCL_LIBRARIES} libvtkCommon.so libvtkFiltering.so)
+
+add_executable(ground_extracter src/ground_extracter.cpp)
+target_link_libraries(ground_extracter ${catkin_LIBRARIES} ${PCL_LIBRARIES} libvtkCommon.so libvtkFiltering.so)

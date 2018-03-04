@@ -1,5 +1,4 @@
 #include <ros/ros.h>
-// PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
@@ -12,41 +11,6 @@ using namespace std;
 
 ros::Publisher pub;
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-
-boost::shared_ptr<pcl::visualization::PCLVisualizer> xyziVis (pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud)
-{
-
-  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer")); 
-  viewer->setBackgroundColor (0, 0, 0); 
-  pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> intensity_distribution(cloud, "intensity"); 
-  viewer->addPointCloud<pcl::PointXYZI> (cloud, intensity_distribution, "sample cloud"); 
-  viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud"); 
-  viewer->addCoordinateSystem (1.0); 
-  viewer->initCameraParameters (); 
-  return viewer;
-}
-
-void cloud_cb_display_colored (const sensor_msgs::PointCloud2ConstPtr& input)
-{
-  static int t = 0;
-  t++;
-  cout<<"Got points-"<<t<<" :)"<<endl;
-
-  pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZI>);
-  pcl::fromROSMsg (*input, *cloud_ptr);
-
-  for(pcl::PointCloud<pcl::PointXYZI>::iterator it = cloud_ptr->begin(); it != cloud_ptr->end(); it++){ 
-    cout << it->x << ", " << it->y << ", " << it->z << "," << it->intensity << endl; 
-    } 
-
-  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-  viewer = xyziVis(cloud_ptr);
-  while (!viewer->wasStopped ())
-  {
-      viewer->spinOnce (100);
-      boost::this_thread::sleep (boost::posix_time::microseconds (100000));
-  }
-}
 
 boost::shared_ptr<pcl::visualization::PCLVisualizer> rgbVis (pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud)
 {
@@ -85,6 +49,8 @@ void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr display_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
 
+    float min_z = numeric_limits<float>::max(), max_z = -1;
+
     for(pcl::PointCloud<pcl::PointXYZI>::iterator it = cloud_ptr->begin(); it != cloud_ptr->end(); it++){
 
         if(it->intensity>250)
@@ -93,6 +59,12 @@ void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
             cout<<"Error! Intensity greater than 250!\n";
             exit(1);
         }
+
+        if(it->z > max_z)
+            max_z = it->z;
+
+        if(it->z < min_z)
+            min_z = it->z;
 
         pcl::PointXYZRGB point;
         int i = (it->intensity/250.0)*255;
@@ -105,6 +77,8 @@ void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
         display_cloud_ptr->points.push_back (point);
     }
 
+    cout<<"min_z="<<min_z<<" max_z="<<max_z<<endl;
+
     display_cloud_ptr->width = (int) display_cloud_ptr->points.size ();
     display_cloud_ptr->height = 1; 
 
@@ -116,18 +90,13 @@ void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
     viewer->spinOnce(100);
 }
 
-
-
-int
-main (int argc, char** argv)
+int main (int argc, char** argv)
 {
-  // Initialize ROS
-  ros::init (argc, argv, "pcl_viewer");
-  ros::NodeHandle nh;
+    ros::init (argc, argv, "pcl_viewer");
+    ros::NodeHandle nh;
 
-  // Create a ROS subscriber for the input point cloud
-  ros::Subscriber sub = nh.subscribe ("/velodyne_points", 1, cloud_cb);
+    ros::Subscriber sub = nh.subscribe ("/velodyne_points", 1, cloud_cb);
 
-  // Spin
-  ros::spin ();
+    // Spin
+    ros::spin ();
 }
