@@ -77,15 +77,55 @@ void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
         display_cloud_ptr->points.push_back (point);
     }
 
-    cout<<"min_z="<<min_z<<" max_z="<<max_z<<endl;
+    int i, j, k;
+    int hist[251];
+    for(i=0;i<251;i++)
+        hist[i] = 0;
 
-    display_cloud_ptr->width = (int) display_cloud_ptr->points.size ();
-    display_cloud_ptr->height = 1; 
+    for(pcl::PointCloud<pcl::PointXYZI>::iterator it = cloud_ptr->begin(); it != cloud_ptr->end(); it++){
+
+        int level = 10 * (it->z + 5);
+        int start = max(0, level-3);
+        int end = min(249, level+3);
+
+        for(i=start;i<=end;i++)
+            hist[i]++;
+    }
+
+    int ground_level = 0;
+    for(i=0;i<250;i++)
+        if(hist[i]>hist[ground_level])
+            ground_level = i;
+
+    float ground_height = ground_level/10.0 - 5;
+
+    cout<<"ground_height = "<<ground_height<<endl;
+
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr ground_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    for(pcl::PointCloud<pcl::PointXYZI>::iterator it = cloud_ptr->begin(); it != cloud_ptr->end(); it++){
+
+        if(abs(it->z - ground_height)<0.3 && it->intensity>15 && it->intensity<30)
+        {
+            pcl::PointXYZRGB point;
+            int i = (it->intensity/33.0)*255;
+            //int i = 250;
+            uint8_t r(i), g(i), b(i);
+            uint32_t rgb = (static_cast<uint32_t>(r) << 16 | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
+            point.rgb = *reinterpret_cast<float*>(&rgb);
+            point.x = it->x;
+            point.y = it->y;
+            point.z = it->z;
+            ground_cloud_ptr->points.push_back (point);
+        }
+    }
+    ground_cloud_ptr->width = (int) ground_cloud_ptr->points.size ();
+    ground_cloud_ptr->height = 1; 
 
     if(t==1)
-        viewer = rgbVis(display_cloud_ptr);
+        viewer = rgbVis(ground_cloud_ptr);
     else
-        viewer = updateVis(viewer, display_cloud_ptr);
+        viewer = updateVis(viewer, ground_cloud_ptr);
 
     viewer->spinOnce(100);
 }
